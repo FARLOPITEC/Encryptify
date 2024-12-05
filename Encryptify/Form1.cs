@@ -1,26 +1,63 @@
 using System;
-using System.Windows.Forms;
+using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
-using System.IO;
+using System.Windows.Forms;
 
 namespace Encryptify
 {
-    public partial class Encryptify : Form
+    public partial class Form1 : Form
     {
-        private bool isPasswordVisible = false; // Variable para rastrear el estado de visibilidad de la contraseña
-        private string folderPath = string.Empty; // Inicializar la variable para evitar valores NULL
-        private string filePath = string.Empty; // Inicializar la variable para la ruta del archivo a encriptar
+        private string folderPath = string.Empty; // Inicialización de la variable folderPath
+        private bool isPasswordVisible = false; // Declaración de la variable isPasswordVisible
 
-        public Encryptify()
+        public Form1()
         {
             InitializeComponent();
-            textBox3.UseSystemPasswordChar = true; // Configurar textBox3 para contraseñas
+            textBox_password.UseSystemPasswordChar = true; // Ocultar la contraseña por defecto
+
+            // Agregar algoritmos al comboBox_getAlgorithm
+            comboBox_getAlgorithm.Items.Add("AES-256");
+            comboBox_getAlgorithm.Items.Add("AES-128");
+            comboBox_getAlgorithm.Items.Add("DES");
+            comboBox_getAlgorithm.Items.Add("TripleDES");
+
+            // Seleccionar el primer algoritmo por defecto
+            comboBox_getAlgorithm.SelectedIndex = 0;
+
+            // Vincular el evento Click del botón button_showPass al método button_showPass_Click
+            button_showpass.Click += new EventHandler(button_showPass_Click);
         }
 
-        private void button_selectFolder_Click(object sender, EventArgs e)
+        private void LogMessage(string message)
         {
-            using (FolderBrowserDialog folderDialog = new())
+            listBox_logs.Items.Add($"{DateTime.Now}: {message}");
+        }
+
+        private void btn_addFile_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    listBoxPaths.Items.Add(openFileDialog.FileName);
+                    LogMessage($"Archivo añadido: {openFileDialog.FileName}");
+                }
+            }
+        }
+
+        private void btn_remove_Click(object sender, EventArgs e)
+        {
+            if (listBoxPaths.SelectedItem != null)
+            {
+                LogMessage($"Elemento eliminado: {listBoxPaths.SelectedItem}");
+                listBoxPaths.Items.Remove(listBoxPaths.SelectedItem);
+            }
+        }
+
+        private void btn_examine_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
             {
                 folderDialog.Description = "Select a folder to be zipped";
                 folderDialog.ShowNewFolderButton = false;
@@ -28,153 +65,81 @@ namespace Encryptify
                 if (folderDialog.ShowDialog() == DialogResult.OK)
                 {
                     folderPath = folderDialog.SelectedPath;
-                    this.textBox1.Text = folderPath; // Mostrar la ruta de la carpeta en textBox1
+                    this.textBox_Examine.Text = folderPath; // Mostrar la ruta de la carpeta en textBox1
+                    LogMessage($"Carpeta seleccionada para comprimir: {folderPath}");
                 }
             }
         }
 
-        private void button_createZipFile_Click(object sender, EventArgs e)
+        private void btn_createzip_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(folderPath))
+            try
             {
-                MessageBox.Show("Please select a folder first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            using (SaveFileDialog saveDialog = new SaveFileDialog())
-            {
-                saveDialog.Filter = "ZIP files|*.zip";
-                saveDialog.Title = "Save ZIP File";
-                saveDialog.FileName = Path.GetFileName(folderPath) + ".zip";
-
-                if (saveDialog.ShowDialog() == DialogResult.OK)
+                if (string.IsNullOrEmpty(folderPath))
                 {
-                    string zipFilePath = saveDialog.FileName;
-
-                    try
-                    {
-                        // Crear el archivo ZIP
-                        ZipFile.CreateFromDirectory(folderPath, zipFilePath);
-                        MessageBox.Show("ZIP file created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch (IOException ex)
-                    {
-                        MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
+                    MessageBox.Show("Please select a folder first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    LogMessage("Error: No se ha seleccionado ninguna carpeta.");
+                    return;
                 }
-            }
-        }
 
-        private void button_encryptfile_Click(object sender, EventArgs e)
-        {
-            using (OpenFileDialog openDialog = new())
-            {
-                openDialog.Filter = "All files|*.*";
-                openDialog.Title = "Open a file to be encrypted";
-                openDialog.Multiselect = false;
-
-                if (openDialog.ShowDialog() == DialogResult.OK)
+                using (SaveFileDialog saveDialog = new SaveFileDialog())
                 {
-                    filePath = openDialog.FileName;
-                    this.textBox2.Text = filePath; // Mostrar la ruta del archivo en textBox2
-                }
-            }
-        }
+                    saveDialog.Filter = "ZIP files|*.zip";
+                    saveDialog.Title = "Save ZIP File";
+                    saveDialog.FileName = Path.GetFileName(folderPath) + ".zip";
 
-        private void button_encrypt_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(textBox3.Text))
-            {
-                MessageBox.Show("Please select a file and enter a password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            string algorithm = comboBox_algorithms.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(algorithm))
-            {
-                MessageBox.Show("Please select an encryption algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            using (SaveFileDialog saveDialog = new SaveFileDialog())
-            {
-                saveDialog.Filter = "Encrypted files|*.enc";
-                saveDialog.Title = "Save Encrypted File";
-                saveDialog.FileName = Path.GetFileName(filePath) + ".enc";
-
-                if (saveDialog.ShowDialog() == DialogResult.OK)
-                {
-                    string encryptedFilePath = saveDialog.FileName;
-
-                    try
+                    if (saveDialog.ShowDialog() == DialogResult.OK)
                     {
-                        EncryptFile(filePath, encryptedFilePath, textBox3.Text, algorithm);
-                        MessageBox.Show("File encrypted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        string zipFilePath = saveDialog.FileName;
+
+                        try
+                        {
+                            // Crear el archivo ZIP
+                            ZipFile.CreateFromDirectory(folderPath, zipFilePath);
+                            MessageBox.Show("ZIP file created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            LogMessage($"Archivo ZIP creado: {zipFilePath}");
+                        }
+                        catch (IOException ex)
+                        {
+                            MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            LogMessage($"Error al crear el archivo ZIP: {ex.Message}");
+                        }
                     }
                 }
             }
-        }
-
-        private void button_decrypt_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrEmpty(filePath) || string.IsNullOrEmpty(textBox3.Text))
+            catch (Exception ex)
             {
-                MessageBox.Show("Please select a file and enter a password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogMessage($"Unexpected error: {ex.Message}");
             }
-
-            string algorithm = comboBox_algorithms.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(algorithm))
-            {
-                MessageBox.Show("Please select an encryption algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            using (SaveFileDialog saveDialog = new SaveFileDialog())
-            {
-                saveDialog.Filter = "All files|*.*";
-                saveDialog.Title = "Save Decrypted File";
-                saveDialog.FileName = Path.GetFileNameWithoutExtension(filePath);
-
-                if (saveDialog.ShowDialog() == DialogResult.OK)
-                {
-                    string decryptedFilePath = saveDialog.FileName;
-
-                    try
-                    {
-                        DecryptFile(filePath, decryptedFilePath, textBox3.Text, algorithm);
-                        MessageBox.Show("File decrypted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-            }
-        }
-
-        private void textBox3_TextChanged(object sender, EventArgs e)
-        {
-            // Aquí puedes agregar lógica adicional si es necesario
-        }
-
-        private void button_showPass_Click(object sender, EventArgs e)
-        {
-            isPasswordVisible = !isPasswordVisible; // Alternar el estado de visibilidad de la contraseña
-            textBox3.UseSystemPasswordChar = !isPasswordVisible; // Mostrar u ocultar la contraseña
         }
 
         private void EncryptFile(string inputFile, string outputFile, string password, string algorithm)
         {
             byte[] key, iv;
-            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16))
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16, 10000, HashAlgorithmName.SHA256))
             {
-                key = deriveBytes.GetBytes(32); // 256 bits
-                iv = deriveBytes.GetBytes(16); // 128 bits
+                switch (algorithm)
+                {
+                    case "AES-256":
+                        key = deriveBytes.GetBytes(32); // 256 bits
+                        iv = deriveBytes.GetBytes(16); // 128 bits
+                        break;
+                    case "AES-128":
+                        key = deriveBytes.GetBytes(16); // 128 bits
+                        iv = deriveBytes.GetBytes(16); // 128 bits
+                        break;
+                    case "DES":
+                        key = deriveBytes.GetBytes(8); // 64 bits
+                        iv = deriveBytes.GetBytes(8); // 64 bits
+                        break;
+                    case "TripleDES":
+                        key = deriveBytes.GetBytes(24); // 192 bits
+                        iv = deriveBytes.GetBytes(8); // 64 bits
+                        break;
+                    default:
+                        throw new NotSupportedException("Algorithm not supported");
+                }
             }
 
             using (FileStream fsInput = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
@@ -185,10 +150,113 @@ namespace Encryptify
             }
         }
 
+        private void button_Encrypt_Click(object sender, EventArgs e)
+        {
+            if (listBoxPaths.Items.Count == 0 || string.IsNullOrEmpty(textBox_password.Text))
+            {
+                MessageBox.Show("Please add files and enter a password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string algorithm = comboBox_getAlgorithm.SelectedItem?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(algorithm))
+            {
+                MessageBox.Show("Please select an encryption algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            foreach (string filePath in listBoxPaths.Items)
+            {
+                using (SaveFileDialog saveDialog = new SaveFileDialog())
+                {
+                    string extension = algorithm switch
+                    {
+                        "AES-256" => ".aes",
+                        "AES-128" => ".aes",
+                        "DES" => ".des",
+                        "TripleDES" => ".3des",
+                        _ => ".enc"
+                    };
+
+                    saveDialog.Filter = $"Encrypted files|*{extension}";
+                    saveDialog.Title = "Save Encrypted File";
+                    saveDialog.FileName = Path.GetFileName(filePath) + extension;
+
+                    if (saveDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        string encryptedFilePath = saveDialog.FileName;
+
+                        try
+                        {
+                            EncryptFile(filePath, encryptedFilePath, textBox_password.Text, algorithm);
+                            MessageBox.Show($"File {filePath} encrypted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            LogMessage($"Archivo encriptado: {encryptedFilePath}");
+
+                            // Eliminar el archivo original si la opción está marcada
+                            if (checkBox_deleteOriginalfile.Checked)
+                            {
+                                File.Delete(filePath);
+                                LogMessage($"Archivo original eliminado: {filePath}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            LogMessage($"Error al encriptar el archivo {filePath}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+        }
+
+
+        private void button_decrypt_Click(object sender, EventArgs e)
+        {
+            if (listBoxPaths.Items.Count == 0 || string.IsNullOrEmpty(textBox_password.Text))
+            {
+                MessageBox.Show("Please add files and enter a password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string algorithm = comboBox_getAlgorithm.SelectedItem?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(algorithm))
+            {
+                MessageBox.Show("Please select an encryption algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            foreach (string filePath in listBoxPaths.Items)
+            {
+                using (SaveFileDialog saveDialog = new SaveFileDialog())
+                {
+                    saveDialog.Filter = "All files|*.*";
+                    saveDialog.Title = "Save Decrypted File";
+                    saveDialog.FileName = Path.GetFileNameWithoutExtension(filePath);
+
+                    if (saveDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        string decryptedFilePath = saveDialog.FileName;
+
+                        try
+                        {
+                            DecryptFile(filePath, decryptedFilePath, textBox_password.Text, algorithm);
+                            MessageBox.Show($"File {filePath} decrypted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            LogMessage($"Archivo desencriptado: {decryptedFilePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            LogMessage($"Error al desencriptar el archivo {filePath}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+        }
+
         private void DecryptFile(string inputFile, string outputFile, string password, string algorithm)
         {
             byte[] key, iv;
-            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16))
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16, 10000, HashAlgorithmName.SHA256))
             {
                 key = deriveBytes.GetBytes(32); // 256 bits
                 iv = deriveBytes.GetBytes(16); // 128 bits
@@ -207,9 +275,13 @@ namespace Encryptify
             SymmetricAlgorithm algo;
             switch (algorithm)
             {
-                case "AES":
+                case "AES-256":
                     algo = Aes.Create();
                     algo.KeySize = 256; // Asegurar que AES use una clave de 256 bits
+                    break;
+                case "AES-128":
+                    algo = Aes.Create();
+                    algo.KeySize = 128; // Asegurar que AES use una clave de 128 bits
                     break;
                 case "DES":
                     algo = DES.Create();
@@ -223,6 +295,17 @@ namespace Encryptify
             algo.Key = key;
             algo.IV = iv;
             return algo;
+        }
+
+        private void button_showPass_Click(object? sender, EventArgs? e)
+        {
+            isPasswordVisible = !isPasswordVisible; // Alternar el estado de visibilidad de la contraseña
+            textBox_password.UseSystemPasswordChar = !isPasswordVisible; // Mostrar u ocultar la contraseña
+        }
+
+        private void checkBox_deleteOriginalfile_CheckedChanged(object? sender, EventArgs? e)
+        {
+
         }
     }
 }

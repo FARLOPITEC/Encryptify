@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Encryptify", "Encryptify\Encryptify.csproj", "{A4268490-F677-4FA2-979A-CF6DF2A9850F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Encryptify", "Encryptify\Encryptify.csproj", "{620BEADD-A19E-4D4A-A318-CBDA8E42F76C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A4268490-F677-4FA2-979A-CF6DF2A9850F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A4268490-F677-4FA2-979A-CF6DF2A9850F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A4268490-F677-4FA2-979A-CF6DF2A9850F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A4268490-F677-4FA2-979A-CF6DF2A9850F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{620BEADD-A19E-4D4A-A318-CBDA8E42F76C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{620BEADD-A19E-4D4A-A318-CBDA8E42F76C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{620BEADD-A19E-4D4A-A318-CBDA8E42F76C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{620BEADD-A19E-4D4A-A318-CBDA8E42F76C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {2111AB4F-10D8-4E49-8122-5BFDC5BB4C56}
+		SolutionGuid = {76018712-A9DC-4220-B8DC-6A67594CE470}
 	EndGlobalSection
 EndGlobal
