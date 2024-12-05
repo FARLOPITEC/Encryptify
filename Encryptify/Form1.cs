@@ -41,7 +41,7 @@ namespace Encryptify
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     listBoxPaths.Items.Add(openFileDialog.FileName);
-                    LogMessage($"Archivo añadido: {openFileDialog.FileName}");
+                    LogMessage($"File added: {openFileDialog.FileName}");
                 }
             }
         }
@@ -50,7 +50,7 @@ namespace Encryptify
         {
             if (listBoxPaths.SelectedItem != null)
             {
-                LogMessage($"Elemento eliminado: {listBoxPaths.SelectedItem}");
+                LogMessage($"Delete item: {listBoxPaths.SelectedItem}");
                 listBoxPaths.Items.Remove(listBoxPaths.SelectedItem);
             }
         }
@@ -66,7 +66,7 @@ namespace Encryptify
                 {
                     folderPath = folderDialog.SelectedPath;
                     this.textBox_Examine.Text = folderPath; // Mostrar la ruta de la carpeta en textBox1
-                    LogMessage($"Carpeta seleccionada para comprimir: {folderPath}");
+                    LogMessage($"Selected folder to compress: {folderPath}");
                 }
             }
         }
@@ -78,7 +78,7 @@ namespace Encryptify
                 if (string.IsNullOrEmpty(folderPath))
                 {
                     MessageBox.Show("Please select a folder first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    LogMessage("Error: No se ha seleccionado ninguna carpeta.");
+                    LogMessage("Error: Any folder selected.");
                     return;
                 }
 
@@ -97,12 +97,12 @@ namespace Encryptify
                             // Crear el archivo ZIP
                             ZipFile.CreateFromDirectory(folderPath, zipFilePath);
                             MessageBox.Show("ZIP file created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            LogMessage($"Archivo ZIP creado: {zipFilePath}");
+                            LogMessage($"Zip file created: {zipFilePath}");
                         }
                         catch (IOException ex)
                         {
                             MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            LogMessage($"Error al crear el archivo ZIP: {ex.Message}");
+                            LogMessage($"Error creating zip file: {ex.Message}");
                         }
                     }
                 }
@@ -116,8 +116,9 @@ namespace Encryptify
 
         private void EncryptFile(string inputFile, string outputFile, string password, string algorithm)
         {
+            byte[] salt = GenerateSalt();
             byte[] key, iv;
-            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16, 10000, HashAlgorithmName.SHA256))
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256))
             {
                 switch (algorithm)
                 {
@@ -142,12 +143,103 @@ namespace Encryptify
                 }
             }
 
-            using (FileStream fsInput = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
             using (FileStream fsEncrypted = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
-            using (var cryptoStream = new CryptoStream(fsEncrypted, GetAlgorithm(algorithm, key, iv).CreateEncryptor(), CryptoStreamMode.Write))
             {
-                fsInput.CopyTo(cryptoStream);
+                fsEncrypted.Write(salt, 0, salt.Length); // Escribir la sal al inicio del archivo
+
+                using (FileStream fsInput = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
+                using (var cryptoStream = new CryptoStream(fsEncrypted, GetAlgorithm(algorithm, key, iv).CreateEncryptor(), CryptoStreamMode.Write))
+                {
+                    fsInput.CopyTo(cryptoStream);
+                }
             }
+        }
+
+        private void DecryptFile(string inputFile, string outputFile, string password, string algorithm)
+        {
+            byte[] salt = new byte[16];
+            using (FileStream fsInput = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
+            {
+                fsInput.Read(salt, 0, salt.Length); // Leer la sal del inicio del archivo
+
+                byte[] key, iv;
+                using (var deriveBytes = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256))
+                {
+                    switch (algorithm)
+                    {
+                        case "AES-256":
+                            key = deriveBytes.GetBytes(32); // 256 bits
+                            iv = deriveBytes.GetBytes(16); // 128 bits
+                            break;
+                        case "AES-128":
+                            key = deriveBytes.GetBytes(16); // 128 bits
+                            iv = deriveBytes.GetBytes(16); // 128 bits
+                            break;
+                        case "DES":
+                            key = deriveBytes.GetBytes(8); // 64 bits
+                            iv = deriveBytes.GetBytes(8); // 64 bits
+                            break;
+                        case "TripleDES":
+                            key = deriveBytes.GetBytes(24); // 192 bits
+                            iv = deriveBytes.GetBytes(8); // 64 bits
+                            break;
+                        default:
+                            throw new NotSupportedException("Algorithm not supported");
+                    }
+                }
+
+                using (FileStream fsDecrypted = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
+                using (var cryptoStream = new CryptoStream(fsInput, GetAlgorithm(algorithm, key, iv).CreateDecryptor(), CryptoStreamMode.Read))
+                {
+                    cryptoStream.CopyTo(fsDecrypted);
+                }
+            }
+        }
+
+        private SymmetricAlgorithm GetAlgorithm(string algorithm, byte[] key, byte[] iv)
+        {
+            SymmetricAlgorithm algo;
+            switch (algorithm)
+            {
+                case "AES-256":
+                    algo = Aes.Create();
+                    algo.KeySize = 256; // Asegurar que AES use una clave de 256 bits
+                    break;
+                case "AES-128":
+                    algo = Aes.Create();
+                    algo.KeySize = 128; // Asegurar que AES use una clave de 128 bits
+                    break;
+                case "DES":
+                    algo = DES.Create();
+                    break;
+                case "TripleDES":
+                    algo = TripleDES.Create();
+                    break;
+                default:
+                    throw new NotSupportedException("Algorithm not supported");
+            }
+            algo.Key = key;
+            algo.IV = iv;
+            algo.Padding = PaddingMode.PKCS7; // Asegurar que el modo de relleno sea PKCS7
+            return algo;
+        }
+
+        private byte[] GenerateSalt()
+        {
+            byte[] salt = new byte[16];
+            RandomNumberGenerator.Fill(salt);
+            return salt;
+        }
+
+        private void button_showPass_Click(object? sender, EventArgs? e)
+        {
+            isPasswordVisible = !isPasswordVisible; // Alternar el estado de visibilidad de la contraseña
+            textBox_password.UseSystemPasswordChar = !isPasswordVisible; // Mostrar u ocultar la contraseña
+        }
+
+        private void checkBox_deleteOriginalfile_CheckedChanged(object? sender, EventArgs? e)
+        {
+            // Implementar lógica si es necesario
         }
 
         private void button_Encrypt_Click(object sender, EventArgs e)
@@ -196,7 +288,7 @@ namespace Encryptify
                             if (checkBox_deleteOriginalfile.Checked)
                             {
                                 File.Delete(filePath);
-                                LogMessage($"Archivo original eliminado: {filePath}");
+                                LogMessage($"Original file deleted: {filePath}");
                             }
                         }
                         catch (Exception ex)
@@ -208,7 +300,6 @@ namespace Encryptify
                 }
             }
         }
-
 
         private void button_decrypt_Click(object sender, EventArgs e)
         {
@@ -253,59 +344,49 @@ namespace Encryptify
             }
         }
 
-        private void DecryptFile(string inputFile, string outputFile, string password, string algorithm)
+        private void btn_decryptFolder_Click(object sender, EventArgs e)
         {
-            byte[] key, iv;
-            using (var deriveBytes = new Rfc2898DeriveBytes(password, 16, 10000, HashAlgorithmName.SHA256))
+            if (string.IsNullOrEmpty(folderPath) || string.IsNullOrEmpty(textBox_password.Text))
             {
-                key = deriveBytes.GetBytes(32); // 256 bits
-                iv = deriveBytes.GetBytes(16); // 128 bits
+                MessageBox.Show("Please select a folder and enter a password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
-            using (FileStream fsInput = new FileStream(inputFile, FileMode.Open, FileAccess.Read))
-            using (FileStream fsDecrypted = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
-            using (var cryptoStream = new CryptoStream(fsInput, GetAlgorithm(algorithm, key, iv).CreateDecryptor(), CryptoStreamMode.Read))
+            string algorithm = comboBox_getAlgorithm.SelectedItem?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(algorithm))
             {
-                cryptoStream.CopyTo(fsDecrypted);
+                MessageBox.Show("Please select an encryption algorithm.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
-        }
 
-        private SymmetricAlgorithm GetAlgorithm(string algorithm, byte[] key, byte[] iv)
-        {
-            SymmetricAlgorithm algo;
-            switch (algorithm)
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
             {
-                case "AES-256":
-                    algo = Aes.Create();
-                    algo.KeySize = 256; // Asegurar que AES use una clave de 256 bits
-                    break;
-                case "AES-128":
-                    algo = Aes.Create();
-                    algo.KeySize = 128; // Asegurar que AES use una clave de 128 bits
-                    break;
-                case "DES":
-                    algo = DES.Create();
-                    break;
-                case "TripleDES":
-                    algo = TripleDES.Create();
-                    break;
-                default:
-                    throw new NotSupportedException("Algorithm not supported");
+                folderDialog.Description = "Select a folder to save decrypted files";
+                folderDialog.ShowNewFolderButton = true;
+
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string outputFolderPath = folderDialog.SelectedPath;
+
+                    try
+                    {
+                        foreach (string filePath in Directory.GetFiles(folderPath))
+                        {
+                            string decryptedFilePath = Path.Combine(outputFolderPath, Path.GetFileNameWithoutExtension(filePath));
+
+                            DecryptFile(filePath, decryptedFilePath, textBox_password.Text, algorithm);
+                            LogMessage($"Archivo desencriptado: {decryptedFilePath}");
+                        }
+
+                        MessageBox.Show("All files decrypted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        LogMessage($"Error al desencriptar los archivos: {ex.Message}");
+                    }
+                }
             }
-            algo.Key = key;
-            algo.IV = iv;
-            return algo;
-        }
-
-        private void button_showPass_Click(object? sender, EventArgs? e)
-        {
-            isPasswordVisible = !isPasswordVisible; // Alternar el estado de visibilidad de la contraseña
-            textBox_password.UseSystemPasswordChar = !isPasswordVisible; // Mostrar u ocultar la contraseña
-        }
-
-        private void checkBox_deleteOriginalfile_CheckedChanged(object? sender, EventArgs? e)
-        {
-
         }
     }
 }
