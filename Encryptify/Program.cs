@@ -21,13 +21,13 @@ namespace Encryptify
         {
             Exception ex = (Exception)e.ExceptionObject;
             MessageBox.Show($"Unhandled exception: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            // Aquí puedes agregar código para registrar el error en un archivo de log
+            
         }
 
         static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
         {
             MessageBox.Show($"Thread exception: {e.Exception.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            // Aquí puedes agregar código para registrar el error en un archivo de log
+           
         }
     }
 }
